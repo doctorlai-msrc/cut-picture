@@ -44,7 +44,7 @@ jobs:
           threshold-icons: "{0: '🔴', 80: '🔵'}"
 
       - name: Upload production build
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: cut-picture-${{ github.sha }}
           path: |
