@@ -15,10 +15,11 @@ const elements = {
   fileInput: document.querySelector('#fileInput'),
   fileStatus: document.querySelector('#fileStatus'),
   imageDetails: document.querySelector('#imageDetails'),
-  imagePreview: document.querySelector('#imagePreview'),
+  imageInfo: document.querySelector('#imageInfo'),
   pieceCount: document.querySelector('#pieceCount'),
   piecesGrid: document.querySelector('#piecesGrid'),
   rowsInput: document.querySelector('#rowsInput'),
+  settingsStatus: document.querySelector('#settingsStatus'),
   themeToggle: document.querySelector('#themeToggle'),
 };
 
@@ -43,8 +44,10 @@ function loadSettings() {
 function saveSettings() {
   try {
     localStorage.setItem(storageKey, JSON.stringify(settings));
+    elements.settingsStatus.textContent =
+      'Settings are saved automatically in this browser.';
   } catch {
-    elements.downloadStatus.textContent = 'Settings could not be saved locally.';
+    elements.settingsStatus.textContent = 'Settings could not be saved locally.';
   }
 }
 
@@ -73,6 +76,7 @@ function bindEvents() {
     if (file) {
       loadImage(file);
     }
+    event.target.value = '';
   });
 
   ['dragenter', 'dragover'].forEach((eventName) => {
@@ -98,10 +102,14 @@ function bindEvents() {
 
   [elements.rowsInput, elements.colsInput].forEach((input) => {
     input.addEventListener('input', () => {
-      settings.rows = clampGridValue(elements.rowsInput.value);
-      settings.cols = clampGridValue(elements.colsInput.value);
-      saveSettings();
-      scheduleRenderPieces();
+      if (commitGridSettings(false)) {
+        scheduleRenderPieces();
+      }
+    });
+
+    input.addEventListener('change', () => {
+      commitGridSettings(true);
+      renderPieces();
     });
   });
 
@@ -120,6 +128,39 @@ function clampGridValue(value) {
     return 1;
   }
   return Math.min(20, Math.max(1, parsed));
+}
+
+function parseGridValue(value) {
+  const parsed = Number.parseInt(value, 10);
+  if (Number.isNaN(parsed)) {
+    return null;
+  }
+  return Math.min(20, Math.max(1, parsed));
+}
+
+function commitGridSettings(writeInputs) {
+  const rows = parseGridValue(elements.rowsInput.value);
+  const cols = parseGridValue(elements.colsInput.value);
+
+  if (rows === null || cols === null) {
+    if (writeInputs) {
+      elements.rowsInput.value = settings.rows;
+      elements.colsInput.value = settings.cols;
+    }
+    return false;
+  }
+
+  const changed = rows !== settings.rows || cols !== settings.cols;
+  settings.rows = rows;
+  settings.cols = cols;
+
+  if (writeInputs) {
+    elements.rowsInput.value = settings.rows;
+    elements.colsInput.value = settings.cols;
+  }
+
+  saveSettings();
+  return changed;
 }
 
 function scheduleRenderPieces() {
@@ -143,7 +184,9 @@ function loadImage(file) {
   const image = new Image();
   image.onload = () => {
     sourceImage = image;
-    elements.imagePreview.hidden = false;
+    URL.revokeObjectURL(sourceObjectUrl);
+    sourceObjectUrl = '';
+    elements.imageInfo.hidden = false;
     elements.fileStatus.textContent = `Loaded ${file.name}`;
     elements.imageDetails.textContent = `${image.naturalWidth} × ${image.naturalHeight}px`;
     elements.downloadAll.disabled = false;
@@ -152,6 +195,8 @@ function loadImage(file) {
   image.onerror = () => {
     sourceImage = null;
     elements.downloadAll.disabled = true;
+    URL.revokeObjectURL(sourceObjectUrl);
+    sourceObjectUrl = '';
     elements.fileStatus.textContent = 'Could not read that image file.';
   };
   image.src = sourceObjectUrl;
@@ -195,11 +240,6 @@ function drawTile(image, row, col, rows, cols) {
 }
 
 function renderPieces() {
-  settings.rows = clampGridValue(elements.rowsInput.value);
-  settings.cols = clampGridValue(elements.colsInput.value);
-  elements.rowsInput.value = settings.rows;
-  elements.colsInput.value = settings.cols;
-
   elements.piecesGrid.replaceChildren();
   currentTiles = [];
 
@@ -279,6 +319,8 @@ async function downloadAllPieces() {
 
   elements.downloadAll.disabled = true;
   elements.downloadStatus.textContent = 'Preparing pieces…';
+
+  commitGridSettings(true);
 
   if (currentTiles.length !== settings.rows * settings.cols) {
     renderPieces();

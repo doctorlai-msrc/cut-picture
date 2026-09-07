@@ -34,8 +34,8 @@
           <strong>Drop an image here</strong>
           <span>or click to browse your files</span>
         </label>
-        <p class="status" id="fileStatus">No picture selected yet.</p>
-        <div class="image-preview" id="imagePreview" hidden>
+        <p class="status" id="fileStatus" role="status">No picture selected yet.</p>
+        <div class="image-info" id="imageInfo" hidden>
           <p id="imageDetails"></p>
         </div>
       </section>
@@ -52,7 +52,9 @@
             <input id="colsInput" type="number" min="1" max="20" value="3" />
           </label>
         </div>
-        <p class="hint">Settings are saved automatically in this browser.</p>
+        <p class="hint" id="settingsStatus">
+          Settings are saved automatically in this browser.
+        </p>
         <button class="primary-action" id="downloadAll" type="button" disabled>
           Download all pieces
         </button>
