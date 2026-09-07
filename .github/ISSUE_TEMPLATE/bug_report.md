@@ -1,9 +1,9 @@
 ---
 name: Bug report
 about: Report a problem with cutting or downloading images
-title: "[Bug]: "
+title: '[Bug]: '
 labels: bug
-assignees: ""
+assignees: ''
 ---
 
 ## What happened?
