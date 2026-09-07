@@ -262,9 +262,8 @@ h2 {
 .tile-card canvas {
   display: block;
   width: 100%;
-  aspect-ratio: 1 / 1;
+  height: auto;
   border-radius: 12px;
-  object-fit: contain;
   background:
     linear-gradient(45deg, rgba(128, 128, 128, 0.16) 25%, transparent 25%),
     linear-gradient(-45deg, rgba(128, 128, 128, 0.16) 25%, transparent 25%),

@@ -27,23 +27,36 @@ let settings = loadSettings();
 let sourceImage = null;
 let sourceFileName = 'picture';
 let sourceObjectUrl = '';
+let renderTimer = 0;
 
 applySettings();
 bindEvents();
 
 function loadSettings() {
   try {
-    return {
-      ...defaultSettings,
-      ...JSON.parse(localStorage.getItem(storageKey) || '{}'),
-    };
+    return normalizeSettings(JSON.parse(localStorage.getItem(storageKey) || '{}'));
   } catch {
     return { ...defaultSettings };
   }
 }
 
 function saveSettings() {
-  localStorage.setItem(storageKey, JSON.stringify(settings));
+  try {
+    localStorage.setItem(storageKey, JSON.stringify(settings));
+  } catch {
+    elements.downloadStatus.textContent = 'Settings could not be saved locally.';
+  }
+}
+
+function normalizeSettings(storedSettings) {
+  return {
+    rows: clampGridValue(storedSettings.rows ?? defaultSettings.rows),
+    cols: clampGridValue(storedSettings.cols ?? defaultSettings.cols),
+    theme:
+      storedSettings.theme === 'dark' || storedSettings.theme === 'light'
+        ? storedSettings.theme
+        : defaultSettings.theme,
+  };
 }
 
 function applySettings() {
@@ -88,7 +101,7 @@ function bindEvents() {
       settings.rows = clampGridValue(elements.rowsInput.value);
       settings.cols = clampGridValue(elements.colsInput.value);
       saveSettings();
-      renderPieces();
+      scheduleRenderPieces();
     });
   });
 
@@ -107,6 +120,11 @@ function clampGridValue(value) {
     return 1;
   }
   return Math.min(20, Math.max(1, parsed));
+}
+
+function scheduleRenderPieces() {
+  window.clearTimeout(renderTimer);
+  renderTimer = window.setTimeout(renderPieces, 220);
 }
 
 function loadImage(file) {
@@ -140,9 +158,9 @@ function loadImage(file) {
   image.src = sourceObjectUrl;
 }
 
-function getTileBounds(row, col, rows, cols) {
-  const width = sourceImage.naturalWidth;
-  const height = sourceImage.naturalHeight;
+function getTileBounds(image, row, col, rows, cols) {
+  const width = image.naturalWidth;
+  const height = image.naturalHeight;
   const x = Math.round((col * width) / cols);
   const y = Math.round((row * height) / rows);
   const nextX = Math.round(((col + 1) * width) / cols);
@@ -156,15 +174,15 @@ function getTileBounds(row, col, rows, cols) {
   };
 }
 
-function drawTile(row, col, rows, cols) {
-  const bounds = getTileBounds(row, col, rows, cols);
+function drawTile(image, row, col, rows, cols) {
+  const bounds = getTileBounds(image, row, col, rows, cols);
   const canvas = document.createElement('canvas');
   canvas.width = bounds.width;
   canvas.height = bounds.height;
   canvas
     .getContext('2d')
     .drawImage(
-      sourceImage,
+      image,
       bounds.x,
       bounds.y,
       bounds.width,
@@ -197,15 +215,24 @@ function renderPieces() {
 
   for (let row = 0; row < settings.rows; row += 1) {
     for (let col = 0; col < settings.cols; col += 1) {
-      const { bounds, canvas } = drawTile(row, col, settings.rows, settings.cols);
+      const { bounds, canvas } = drawTile(
+        sourceImage,
+        row,
+        col,
+        settings.rows,
+        settings.cols,
+      );
       const card = document.createElement('article');
       card.className = 'tile-card';
 
       const meta = document.createElement('div');
       meta.className = 'tile-meta';
-      meta.innerHTML = `<span>R${row + 1} C${col + 1}<br>${bounds.width} × ${
-        bounds.height
-      }px</span>`;
+      const label = document.createElement('span');
+      label.append(
+        `R${row + 1} C${col + 1}`,
+        document.createElement('br'),
+        `${bounds.width} × ${bounds.height}px`,
+      );
 
       const button = document.createElement('button');
       button.className = 'tile-download';
@@ -254,7 +281,7 @@ async function downloadAllPieces() {
   const downloads = [];
   for (let row = 0; row < settings.rows; row += 1) {
     for (let col = 0; col < settings.cols; col += 1) {
-      const { canvas } = drawTile(row, col, settings.rows, settings.cols);
+      const { canvas } = drawTile(sourceImage, row, col, settings.rows, settings.cols);
       downloads.push({
         blob: await canvasToBlob(canvas),
         fileName: getTileFileName(row, col),
