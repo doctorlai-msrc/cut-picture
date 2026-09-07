@@ -29,6 +29,7 @@ let settings = loadSettings();
 let sourceImage = null;
 let sourceFileName = 'picture';
 let renderTimer = 0;
+let saveTimer = 0;
 let currentTiles = [];
 let currentTileGrid = { rows: 0, cols: 0 };
 let latestLoadToken = 0;
@@ -105,13 +106,14 @@ function bindEvents() {
 
   [elements.rowsInput, elements.colsInput].forEach((input) => {
     input.addEventListener('input', () => {
-      if (commitGridSettings(false)) {
+      if (commitGridSettings(false, false)) {
+        scheduleSaveSettings();
         scheduleRenderPieces();
       }
     });
 
     input.addEventListener('change', () => {
-      commitGridSettings(true);
+      commitGridSettings(true, true);
       renderPieces();
     });
   });
@@ -137,7 +139,7 @@ function gridValueOrDefault(value, fallback) {
   return parseGridValue(value) ?? fallback;
 }
 
-function commitGridSettings(writeInputs) {
+function commitGridSettings(writeInputs, persist) {
   const rows = parseGridValue(elements.rowsInput.value);
   const cols = parseGridValue(elements.colsInput.value);
 
@@ -158,8 +160,15 @@ function commitGridSettings(writeInputs) {
     elements.colsInput.value = settings.cols;
   }
 
-  saveSettings();
+  if (persist) {
+    saveSettings();
+  }
   return changed;
+}
+
+function scheduleSaveSettings() {
+  window.clearTimeout(saveTimer);
+  saveTimer = window.setTimeout(saveSettings, 300);
 }
 
 function scheduleRenderPieces() {
@@ -197,7 +206,10 @@ function loadImage(file) {
     }
     sourceImage = null;
     elements.downloadAll.disabled = true;
+    elements.imageInfo.hidden = true;
+    elements.imageDetails.textContent = '';
     elements.fileStatus.textContent = 'Could not read that image file.';
+    renderPieces();
   };
   image.src = objectUrl;
 }
@@ -321,7 +333,7 @@ async function downloadAllPieces() {
   elements.downloadAll.disabled = true;
   elements.downloadStatus.textContent = 'Preparing pieces…';
 
-  commitGridSettings(true);
+  commitGridSettings(true, true);
 
   if (
     currentTileGrid.rows !== settings.rows ||
@@ -330,21 +342,35 @@ async function downloadAllPieces() {
     renderPieces();
   }
 
-  const downloads = (
-    await Promise.all(
-      currentTiles.map(async ({ canvas, fileName }) => ({
-        blob: await canvasToBlob(canvas),
-        fileName,
-      })),
-    )
-  ).filter(({ blob }) => blob);
+  const tiles = [...currentTiles];
+  if (tiles.length === 0) {
+    elements.downloadStatus.textContent = 'No pieces are ready to download.';
+    elements.downloadAll.disabled = false;
+    return;
+  }
 
-  downloads.forEach(({ blob, fileName }, index) => {
-    window.setTimeout(() => triggerDownload(blob, fileName), index * 120);
+  let completed = 0;
+  let started = 0;
+
+  await new Promise((resolve) => {
+    tiles.forEach(({ canvas, fileName }, index) => {
+      window.setTimeout(async () => {
+        const blob = await canvasToBlob(canvas);
+        if (blob) {
+          started += 1;
+          triggerDownload(blob, fileName);
+        }
+
+        completed += 1;
+        if (completed === tiles.length) {
+          resolve();
+        }
+      }, index * 20);
+    });
   });
 
-  elements.downloadStatus.textContent = `Started ${downloads.length} download${
-    downloads.length === 1 ? '' : 's'
+  elements.downloadStatus.textContent = `Started ${started} download${
+    started === 1 ? '' : 's'
   }.`;
   elements.downloadAll.disabled = false;
 }
