@@ -46,7 +46,7 @@ jobs:
           test "$(find dist/lang -maxdepth 1 -type f -name '*.json' | wc -l)" -eq 25
 
       - name: Configure Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5
