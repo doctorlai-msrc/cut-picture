@@ -138,6 +138,7 @@ h2 {
 }
 
 .drop-zone {
+  position: relative;
   display: grid;
   min-height: 260px;
   place-items: center;
@@ -189,15 +190,6 @@ h2 {
 
 .image-preview {
   margin-top: 20px;
-}
-
-.image-preview img {
-  display: block;
-  max-width: 100%;
-  max-height: 420px;
-  border-radius: 20px;
-  object-fit: contain;
-  background: #111827;
 }
 
 .grid-controls {

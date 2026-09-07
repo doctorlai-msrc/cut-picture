@@ -19,7 +19,6 @@ const elements = {
   pieceCount: document.querySelector('#pieceCount'),
   piecesGrid: document.querySelector('#piecesGrid'),
   rowsInput: document.querySelector('#rowsInput'),
-  sourcePreview: document.querySelector('#sourcePreview'),
   themeToggle: document.querySelector('#themeToggle'),
 };
 
@@ -28,6 +27,7 @@ let sourceImage = null;
 let sourceFileName = 'picture';
 let sourceObjectUrl = '';
 let renderTimer = 0;
+let currentTiles = [];
 
 applySettings();
 bindEvents();
@@ -143,7 +143,6 @@ function loadImage(file) {
   const image = new Image();
   image.onload = () => {
     sourceImage = image;
-    elements.sourcePreview.src = sourceObjectUrl;
     elements.imagePreview.hidden = false;
     elements.fileStatus.textContent = `Loaded ${file.name}`;
     elements.imageDetails.textContent = `${image.naturalWidth} × ${image.naturalHeight}px`;
@@ -202,6 +201,7 @@ function renderPieces() {
   elements.colsInput.value = settings.cols;
 
   elements.piecesGrid.replaceChildren();
+  currentTiles = [];
 
   if (!sourceImage) {
     elements.pieceCount.textContent = 'Upload a picture to generate a grid preview.';
@@ -222,6 +222,8 @@ function renderPieces() {
         settings.rows,
         settings.cols,
       );
+      const fileName = getTileFileName(row, col);
+      currentTiles.push({ canvas, fileName });
       const card = document.createElement('article');
       card.className = 'tile-card';
 
@@ -239,10 +241,10 @@ function renderPieces() {
       button.type = 'button';
       button.textContent = 'Download';
       button.addEventListener('click', () => {
-        downloadCanvas(canvas, getTileFileName(row, col));
+        downloadCanvas(canvas, fileName);
       });
 
-      meta.append(button);
+      meta.append(label, button);
       card.append(canvas, meta);
       elements.piecesGrid.append(card);
     }
@@ -278,16 +280,16 @@ async function downloadAllPieces() {
   elements.downloadAll.disabled = true;
   elements.downloadStatus.textContent = 'Preparing pieces…';
 
-  const downloads = [];
-  for (let row = 0; row < settings.rows; row += 1) {
-    for (let col = 0; col < settings.cols; col += 1) {
-      const { canvas } = drawTile(sourceImage, row, col, settings.rows, settings.cols);
-      downloads.push({
-        blob: await canvasToBlob(canvas),
-        fileName: getTileFileName(row, col),
-      });
-    }
+  if (currentTiles.length !== settings.rows * settings.cols) {
+    renderPieces();
   }
+
+  const downloads = await Promise.all(
+    currentTiles.map(async ({ canvas, fileName }) => ({
+      blob: await canvasToBlob(canvas),
+      fileName,
+    })),
+  );
 
   downloads.forEach(({ blob, fileName }, index) => {
     if (blob) {
