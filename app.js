@@ -1,3 +1,5 @@
+const minGridSize = 1;
+const maxGridSize = 20;
 const storageKey = 'cut-picture-settings';
 const defaultSettings = {
   rows: 3,
@@ -26,9 +28,10 @@ const elements = {
 let settings = loadSettings();
 let sourceImage = null;
 let sourceFileName = 'picture';
-let sourceObjectUrl = '';
 let renderTimer = 0;
 let currentTiles = [];
+let currentTileGrid = { rows: 0, cols: 0 };
+let latestLoadToken = 0;
 
 applySettings();
 bindEvents();
@@ -53,8 +56,8 @@ function saveSettings() {
 
 function normalizeSettings(storedSettings) {
   return {
-    rows: clampGridValue(storedSettings.rows ?? defaultSettings.rows),
-    cols: clampGridValue(storedSettings.cols ?? defaultSettings.cols),
+    rows: gridValueOrDefault(storedSettings.rows, defaultSettings.rows),
+    cols: gridValueOrDefault(storedSettings.cols, defaultSettings.cols),
     theme:
       storedSettings.theme === 'dark' || storedSettings.theme === 'light'
         ? storedSettings.theme
@@ -122,20 +125,16 @@ function bindEvents() {
   elements.downloadAll.addEventListener('click', downloadAllPieces);
 }
 
-function clampGridValue(value) {
-  const parsed = Number.parseInt(value, 10);
-  if (Number.isNaN(parsed)) {
-    return 1;
-  }
-  return Math.min(20, Math.max(1, parsed));
-}
-
 function parseGridValue(value) {
   const parsed = Number.parseInt(value, 10);
   if (Number.isNaN(parsed)) {
     return null;
   }
-  return Math.min(20, Math.max(1, parsed));
+  return Math.min(maxGridSize, Math.max(minGridSize, parsed));
+}
+
+function gridValueOrDefault(value, fallback) {
+  return parseGridValue(value) ?? fallback;
 }
 
 function commitGridSettings(writeInputs) {
@@ -174,18 +173,17 @@ function loadImage(file) {
     return;
   }
 
-  if (sourceObjectUrl) {
-    URL.revokeObjectURL(sourceObjectUrl);
-  }
-
   sourceFileName = file.name.replace(/\.[^.]+$/, '') || 'picture';
-  sourceObjectUrl = URL.createObjectURL(file);
+  const objectUrl = URL.createObjectURL(file);
+  const loadToken = (latestLoadToken += 1);
 
   const image = new Image();
   image.onload = () => {
+    URL.revokeObjectURL(objectUrl);
+    if (loadToken !== latestLoadToken) {
+      return;
+    }
     sourceImage = image;
-    URL.revokeObjectURL(sourceObjectUrl);
-    sourceObjectUrl = '';
     elements.imageInfo.hidden = false;
     elements.fileStatus.textContent = `Loaded ${file.name}`;
     elements.imageDetails.textContent = `${image.naturalWidth} × ${image.naturalHeight}px`;
@@ -193,13 +191,15 @@ function loadImage(file) {
     renderPieces();
   };
   image.onerror = () => {
+    URL.revokeObjectURL(objectUrl);
+    if (loadToken !== latestLoadToken) {
+      return;
+    }
     sourceImage = null;
     elements.downloadAll.disabled = true;
-    URL.revokeObjectURL(sourceObjectUrl);
-    sourceObjectUrl = '';
     elements.fileStatus.textContent = 'Could not read that image file.';
   };
-  image.src = sourceObjectUrl;
+  image.src = objectUrl;
 }
 
 function getTileBounds(image, row, col, rows, cols) {
@@ -242,6 +242,7 @@ function drawTile(image, row, col, rows, cols) {
 function renderPieces() {
   elements.piecesGrid.replaceChildren();
   currentTiles = [];
+  currentTileGrid = { rows: settings.rows, cols: settings.cols };
 
   if (!sourceImage) {
     elements.pieceCount.textContent = 'Upload a picture to generate a grid preview.';
@@ -322,21 +323,24 @@ async function downloadAllPieces() {
 
   commitGridSettings(true);
 
-  if (currentTiles.length !== settings.rows * settings.cols) {
+  if (
+    currentTileGrid.rows !== settings.rows ||
+    currentTileGrid.cols !== settings.cols
+  ) {
     renderPieces();
   }
 
-  const downloads = await Promise.all(
-    currentTiles.map(async ({ canvas, fileName }) => ({
-      blob: await canvasToBlob(canvas),
-      fileName,
-    })),
-  );
+  const downloads = (
+    await Promise.all(
+      currentTiles.map(async ({ canvas, fileName }) => ({
+        blob: await canvasToBlob(canvas),
+        fileName,
+      })),
+    )
+  ).filter(({ blob }) => blob);
 
   downloads.forEach(({ blob, fileName }, index) => {
-    if (blob) {
-      window.setTimeout(() => triggerDownload(blob, fileName), index * 120);
-    }
+    window.setTimeout(() => triggerDownload(blob, fileName), index * 120);
   });
 
   elements.downloadStatus.textContent = `Started ${downloads.length} download${
