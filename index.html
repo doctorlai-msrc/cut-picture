@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      id="metaDescription"
+      name="description"
+      content="Cut a picture into a customizable grid and download all pieces in your browser."
+    />
+    <meta id="themeColor" name="theme-color" content="#f7f6f2" />
+    <title>Cut Picture - Private image grid cutter</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body data-cut-picture-app>
+    <a class="skip-link" href="#main" data-i18n="navigation.skip">
+      Skip to the image cutter
+    </a>
+    <header class="site-header">
+      <div class="brand-copy">
+        <p class="eyebrow" data-i18n="app.eyebrow">
+          Private, browser-based image slicing
+        </p>
+        <h1 data-i18n="app.title">Cut Picture</h1>
+        <p class="intro" data-i18n="app.intro">
+          Split a picture into a precise grid, preview every tile, and download
+          one ZIP. Your image never leaves this device.
+        </p>
+      </div>
+      <div class="header-actions">
+        <label class="language-control">
+          <span class="visually-hidden" data-i18n="language.label"
+            >Language</span
+          >
+          <select
+            id="languageSelect"
+            aria-label="Language"
+            data-i18n-aria-label="language.label"
+          >
+            <option value="en">English</option>
+          </select>
+        </label>
+        <button
+          class="icon-button"
+          type="button"
+          id="themeToggle"
+          aria-label="Use dark mode"
+          title="Use dark mode"
+        >
+          <span id="themeIcon" aria-hidden="true">◐</span>
+        </button>
+      </div>
+    </header>
+
+    <main class="app-shell" id="main">
+      <section class="tool-section upload-panel" aria-labelledby="upload-title">
+        <h2 id="upload-title" data-i18n="upload.title">1. Choose a picture</h2>
+        <label class="drop-zone" id="dropZone">
+          <input
+            id="fileInput"
+            type="file"
+            accept="image/*"
+            aria-label="Choose an image file"
+            data-i18n-aria-label="upload.aria"
+          />
+          <span class="drop-icon" aria-hidden="true">＋</span>
+          <strong data-i18n="upload.drop">Drop an image here</strong>
+          <span data-i18n="upload.browse">or click to browse your files</span>
+        </label>
+        <p class="status" id="fileStatus" role="status">
+          No picture selected yet.
+        </p>
+        <div class="image-info" id="imageInfo" hidden>
+          <p id="imageDetails"></p>
+        </div>
+      </section>
+
+      <section
+        class="tool-section controls-panel"
+        aria-labelledby="controls-title"
+      >
+        <h2 id="controls-title" data-i18n="controls.title">
+          2. Customize the grid
+        </h2>
+        <div class="grid-controls">
+          <label>
+            <span data-i18n="controls.rows">Rows</span>
+            <input id="rowsInput" type="number" min="1" max="20" value="3" />
+          </label>
+          <button
+            class="icon-button swap-button"
+            id="swapGrid"
+            type="button"
+            aria-label="Swap rows and columns"
+            title="Swap rows and columns"
+            data-i18n-aria-label="controls.swap"
+            data-i18n-title="controls.swap"
+          >
+            <span aria-hidden="true">⇄</span>
+          </button>
+          <label>
+            <span data-i18n="controls.columns">Columns</span>
+            <input id="colsInput" type="number" min="1" max="20" value="3" />
+          </label>
+        </div>
+        <p class="hint" id="settingsStatus">
+          Settings are saved automatically in this browser.
+        </p>
+        <button class="primary-action" id="downloadAll" type="button" disabled>
+          <span aria-hidden="true">↓</span>
+          <span data-i18n="download.all">Download all as ZIP</span>
+        </button>
+        <p class="status" id="downloadStatus" role="status"></p>
+      </section>
+
+      <section class="tool-section output-panel" aria-labelledby="output-title">
+        <div class="output-heading">
+          <div>
+            <h2 id="output-title" data-i18n="preview.title">
+              3. Preview pieces
+            </h2>
+            <p id="pieceCount">Upload a picture to generate a grid preview.</p>
+          </div>
+        </div>
+        <div class="pieces-grid" id="piecesGrid" aria-live="polite"></div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p data-i18n="privacy.note">
+        Images are processed locally and never uploaded.
+      </p>
+      <a
+        class="support-link"
+        href="https://www.buymeacoffee.com/y0BtG5R"
+        target="_blank"
+        rel="noopener noreferrer"
+        data-i18n="support.buyMeACoffee"
+        >Buy me a coffee</a
+      >
+      <p>
+        <span data-i18n="version.label">Version</span>:
+        <span id="appVersion"></span>
+      </p>
+    </footer>
+
+    <noscript
+      >This tool requires JavaScript to process images in your
+      browser.</noscript
+    >
+    <script src="/src/bootstrap.js" type="module"></script>
+  </body>
+</html>

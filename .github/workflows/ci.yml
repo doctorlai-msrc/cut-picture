@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run quality checks
+        run: npm run check
+
+      - name: Comment coverage report
+        if: ${{ always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && hashFiles('coverage/coverage-summary.json') != '' }}
+        uses: davelosert/vitest-coverage-report-action@c4bbc33a89b7ace0e63d35f1f7d4bcee31155a73 # v2.13.0
+        with:
+          vite-config-path: ./vitest.config.js
+          file-coverage-mode: all
+          threshold-icons: "{0: '🔴', 80: '🔵'}"
+
+      - name: Upload production build
+        uses: actions/upload-artifact@v5
+        with:
+          name: cut-picture-${{ github.sha }}
+          path: |
+            dist/
+            artifacts/*.zip
+          if-no-files-found: error
+          retention-days: 7
