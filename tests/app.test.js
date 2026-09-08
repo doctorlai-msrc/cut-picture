@@ -427,6 +427,28 @@ describe('settings and localization', () => {
     expect(harness.history.replaceState).toHaveBeenCalledTimes(1);
   });
 
+  it('does not redraw a grid already rendered by the debounce', async () => {
+    vi.useFakeTimers();
+    const harness = createHarness();
+    await harness.app.ready;
+    loadImage(harness);
+    harness.drawContext.drawImage.mockClear();
+    harness.history.replaceState.mockClear();
+
+    const rows = document.querySelector('#rowsInput');
+    rows.value = '4';
+    rows.dispatchEvent(new Event('input'));
+    await vi.advanceTimersByTimeAsync(220);
+    expect(harness.drawContext.drawImage).toHaveBeenCalledTimes(12);
+
+    rows.dispatchEvent(new Event('change'));
+    expect(harness.drawContext.drawImage).toHaveBeenCalledTimes(12);
+    expect(harness.history.replaceState).toHaveBeenCalledTimes(1);
+    await vi.runAllTimersAsync();
+    expect(harness.drawContext.drawImage).toHaveBeenCalledTimes(12);
+    expect(harness.history.replaceState).toHaveBeenCalledTimes(1);
+  });
+
   it('persists the last valid grid value when final input is invalid', async () => {
     vi.useFakeTimers();
     const harness = createHarness();

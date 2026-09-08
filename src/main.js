@@ -685,7 +685,12 @@ export function createCutPictureApp(options = {}) {
         rootWindow.clearTimeout(saveTimer);
         rootWindow.clearTimeout(renderTimer);
         commitGridSettings(true, true);
-        renderPieces();
+        if (
+          currentTileGrid.rows !== settings.rows ||
+          currentTileGrid.cols !== settings.cols
+        ) {
+          renderPieces();
+        }
       });
     });
 
