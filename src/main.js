@@ -42,10 +42,22 @@ function getBrowserStorage(rootWindow) {
   }
 }
 
+function canWriteStorage(storage) {
+  const probeKey = `${storageKey}:probe`;
+  try {
+    storage.setItem(probeKey, '1');
+    storage.removeItem(probeKey);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function createCutPictureApp(options = {}) {
   const rootDocument = options.document ?? globalThis.document;
   const rootWindow = options.window ?? globalThis.window;
   const storage = options.storage ?? getBrowserStorage(rootWindow);
+  const storageAvailable = canWriteStorage(storage);
   const location = options.location ?? rootWindow.location;
   const history = options.history ?? rootWindow.history;
   const fetchImpl = options.fetch ?? globalThis.fetch;
@@ -330,6 +342,10 @@ export function createCutPictureApp(options = {}) {
         elements.rowsInput.value = settings.rows;
         elements.colsInput.value = settings.cols;
       }
+      if (persist) {
+        saveSettings();
+        syncUrlSettings();
+      }
       return false;
     }
 
@@ -600,8 +616,7 @@ export function createCutPictureApp(options = {}) {
       setLiveMessage(elements.downloadStatus, 'download.compressing');
       const archive = await zip.generateAsync({
         type: 'blob',
-        compression: 'DEFLATE',
-        compressionOptions: { level: 6 },
+        compression: 'STORE',
       });
       triggerDownload(archive, archiveFileName);
       setLiveMessage(
@@ -667,8 +682,15 @@ export function createCutPictureApp(options = {}) {
         }
       });
       input.addEventListener('change', () => {
+        rootWindow.clearTimeout(saveTimer);
+        rootWindow.clearTimeout(renderTimer);
         commitGridSettings(true, true);
-        renderPieces();
+        if (
+          currentTileGrid.rows !== settings.rows ||
+          currentTileGrid.cols !== settings.cols
+        ) {
+          renderPieces();
+        }
       });
     });
 
@@ -696,7 +718,10 @@ export function createCutPictureApp(options = {}) {
   populateLocales();
   applySettings();
   setLiveMessage(elements.fileStatus, 'upload.empty');
-  setLiveMessage(elements.settingsStatus, 'settings.saved');
+  setLiveMessage(
+    elements.settingsStatus,
+    storageAvailable ? 'settings.saved' : 'settings.error',
+  );
   setLiveMessage(elements.downloadStatus, '');
   elements.appVersion.textContent = options.appVersion ?? buildVersion;
   bindEvents();

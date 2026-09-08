@@ -95,6 +95,59 @@ describe('tile geometry and names', () => {
     ]);
   });
 
+  it.each([
+    [10, 7, 2, 3],
+    [23, 17, 7, 5],
+    [20, 20, 20, 20],
+    [9, 1, 1, 9],
+  ])(
+    'reassembles a %i x %i image cut into a %i x %i grid',
+    (width, height, rows, cols) => {
+      const image = { naturalWidth: width, naturalHeight: height };
+      const sourcePixels = Array.from(
+        { length: width * height },
+        (_, index) => index,
+      );
+      const tiles = Array.from({ length: rows }, (_, row) =>
+        Array.from({ length: cols }, (_, col) => {
+          const bounds = getTileBounds(image, row, col, rows, cols);
+          const pixels = Array.from(
+            { length: bounds.width * bounds.height },
+            (_, index) => {
+              const tileX = index % bounds.width;
+              const tileY = Math.floor(index / bounds.width);
+              return sourcePixels[
+                (bounds.y + tileY) * width + bounds.x + tileX
+              ];
+            },
+          );
+          return { ...bounds, pixels };
+        }),
+      );
+      const reassembledPixels = [];
+      let destinationY = 0;
+
+      for (const tileRow of tiles) {
+        let destinationX = 0;
+        for (const tile of tileRow) {
+          for (let tileY = 0; tileY < tile.height; tileY += 1) {
+            for (let tileX = 0; tileX < tile.width; tileX += 1) {
+              reassembledPixels[
+                (destinationY + tileY) * width + destinationX + tileX
+              ] = tile.pixels[tileY * tile.width + tileX];
+            }
+          }
+          destinationX += tile.width;
+        }
+        expect(destinationX).toBe(width);
+        destinationY += tileRow[0].height;
+      }
+
+      expect(destinationY).toBe(height);
+      expect(reassembledPixels).toEqual(sourcePixels);
+    },
+  );
+
   it('pads row and column numbers in tile filenames', () => {
     expect(getTileFileName('portrait', 1, 8)).toBe('portrait-r02-c09.png');
     expect(getArchiveFileName('portrait', 2, 9)).toBe('portrait-2x9.zip');

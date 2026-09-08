@@ -147,6 +147,21 @@ afterEach(() => {
 });
 
 describe('settings and localization', () => {
+  it('uses concise live regions for dynamic status updates', async () => {
+    const harness = createHarness();
+    await harness.app.ready;
+
+    expect(document.querySelector('#settingsStatus').getAttribute('role')).toBe(
+      'status',
+    );
+    expect(document.querySelector('#pieceCount').getAttribute('role')).toBe(
+      'status',
+    );
+    expect(
+      document.querySelector('#piecesGrid').hasAttribute('aria-live'),
+    ).toBe(false);
+  });
+
   it('restores legacy settings, applies the theme, and migrates on save', async () => {
     const harness = createHarness({
       storedSettings: JSON.stringify({
@@ -231,7 +246,7 @@ describe('settings and localization', () => {
     expect(harness.history.replaceState).not.toHaveBeenCalled();
   });
 
-  it('uses defaults when storage fails and reports later save failures', async () => {
+  it('uses defaults and immediately reports unavailable storage', async () => {
     const storage = {
       getItem: vi.fn(() => {
         throw new Error('blocked');
@@ -249,6 +264,9 @@ describe('settings and localization', () => {
       cols: 3,
       theme: 'dark',
     });
+    expect(document.querySelector('#settingsStatus').textContent).toBe(
+      'Settings could not be saved locally.',
+    );
     document.querySelector('#themeToggle').click();
     expect(document.querySelector('#settingsStatus').textContent).toBe(
       'Settings could not be saved locally.',
@@ -275,6 +293,9 @@ describe('settings and localization', () => {
     await harness.app.ready;
 
     expect(harness.app.getSettings()).toMatchObject({ rows: 3, cols: 3 });
+    expect(document.querySelector('#settingsStatus').textContent).toBe(
+      'Settings could not be saved locally.',
+    );
     document.querySelector('#themeToggle').click();
     expect(document.querySelector('#settingsStatus').textContent).toBe(
       'Settings could not be saved locally.',
@@ -386,6 +407,70 @@ describe('settings and localization', () => {
     expect(harness.location.searchParams.get('height')).toBe('5');
   });
 
+  it('cancels pending work when a grid change commits immediately', async () => {
+    vi.useFakeTimers();
+    const harness = createHarness();
+    await harness.app.ready;
+    loadImage(harness);
+    harness.drawContext.drawImage.mockClear();
+    harness.history.replaceState.mockClear();
+
+    const rows = document.querySelector('#rowsInput');
+    rows.value = '4';
+    rows.dispatchEvent(new Event('input'));
+    rows.dispatchEvent(new Event('change'));
+
+    expect(harness.drawContext.drawImage).toHaveBeenCalledTimes(12);
+    expect(harness.history.replaceState).toHaveBeenCalledTimes(1);
+    await vi.runAllTimersAsync();
+    expect(harness.drawContext.drawImage).toHaveBeenCalledTimes(12);
+    expect(harness.history.replaceState).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not redraw a grid already rendered by the debounce', async () => {
+    vi.useFakeTimers();
+    const harness = createHarness();
+    await harness.app.ready;
+    loadImage(harness);
+    harness.drawContext.drawImage.mockClear();
+    harness.history.replaceState.mockClear();
+
+    const rows = document.querySelector('#rowsInput');
+    rows.value = '4';
+    rows.dispatchEvent(new Event('input'));
+    await vi.advanceTimersByTimeAsync(220);
+    expect(harness.drawContext.drawImage).toHaveBeenCalledTimes(12);
+
+    rows.dispatchEvent(new Event('change'));
+    expect(harness.drawContext.drawImage).toHaveBeenCalledTimes(12);
+    expect(harness.history.replaceState).toHaveBeenCalledTimes(1);
+    await vi.runAllTimersAsync();
+    expect(harness.drawContext.drawImage).toHaveBeenCalledTimes(12);
+    expect(harness.history.replaceState).toHaveBeenCalledTimes(1);
+  });
+
+  it('persists the last valid grid value when final input is invalid', async () => {
+    vi.useFakeTimers();
+    const harness = createHarness();
+    await harness.app.ready;
+
+    const rows = document.querySelector('#rowsInput');
+    rows.value = '4';
+    rows.dispatchEvent(new Event('input'));
+    rows.value = '';
+    rows.dispatchEvent(new Event('input'));
+    rows.dispatchEvent(new Event('change'));
+
+    expect(rows.value).toBe('4');
+    expect(
+      JSON.parse(window.localStorage.getItem('cut-picture:settings')).rows,
+    ).toBe(4);
+    expect(harness.location.searchParams.get('height')).toBe('4');
+    expect(harness.history.replaceState).toHaveBeenCalledTimes(1);
+    await vi.runAllTimersAsync();
+    expect(harness.history.replaceState).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps working when browser history updates are blocked', async () => {
     const harness = createHarness();
     await harness.app.ready;
@@ -436,7 +521,11 @@ describe('image loading and rendering', () => {
       }),
     });
     await harness.app.ready;
-    loadImage(harness, { width: 4, height: 2, name: 'tiny:image.png' });
+    const image = loadImage(harness, {
+      width: 4,
+      height: 2,
+      name: 'tiny:image.png',
+    });
 
     expect(harness.app.getSettings()).toMatchObject({ rows: 2, cols: 3 });
     expect(document.querySelector('#rowsInput').max).toBe('2');
@@ -448,7 +537,14 @@ describe('image loading and rendering', () => {
     expect(document.querySelector('#settingsStatus').textContent).toBe(
       'Grid size was reduced to fit this image.',
     );
-    expect(harness.drawContext.drawImage).toHaveBeenCalledTimes(6);
+    expect(harness.drawContext.drawImage.mock.calls).toEqual([
+      [image, 0, 0, 1, 1, 0, 0, 1, 1],
+      [image, 1, 0, 2, 1, 0, 0, 2, 1],
+      [image, 3, 0, 1, 1, 0, 0, 1, 1],
+      [image, 0, 1, 1, 1, 0, 0, 1, 1],
+      [image, 1, 1, 2, 1, 0, 0, 2, 1],
+      [image, 3, 1, 1, 1, 0, 0, 1, 1],
+    ]);
     expect(document.querySelector('#downloadAll').disabled).toBe(false);
     expect(harness.location.searchParams.get('width')).toBe('3');
     expect(harness.location.searchParams.get('height')).toBe('2');
@@ -571,8 +667,7 @@ describe('downloads', () => {
     expect(harness.zip.file).toHaveBeenCalledTimes(4);
     expect(harness.zip.generateAsync).toHaveBeenCalledWith({
       type: 'blob',
-      compression: 'DEFLATE',
-      compressionOptions: { level: 6 },
+      compression: 'STORE',
     });
     expect(harness.downloads.at(-1).download).toBe('portrait-2x2.zip');
     expect(document.querySelector('#downloadStatus').textContent).toBe(

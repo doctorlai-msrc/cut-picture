@@ -11,6 +11,19 @@ date-based version because it is deployed directly as a static site.
   with language and grid changes.
 - A localized Buy Me a Coffee support link in the application footer.
 
+### Changed
+
+- Reduced ZIP preparation time by storing already-compressed PNG tiles without
+  redundant recompression.
+- Improved screen-reader feedback with concise settings and piece-count status
+  announcements.
+
+### Fixed
+
+- Reported unavailable browser storage immediately instead of claiming
+  settings were saved.
+- Avoided duplicate delayed saves and grid renders after row or column changes.
+
 ## 2026.9.7 - 2026-09-07
 
 ### Added
