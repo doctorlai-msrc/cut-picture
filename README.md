@@ -44,8 +44,13 @@ into one ZIP. Images are processed locally and are never uploaded by the app.
 3. Set the row and column counts. The preview updates automatically.
 4. Download one tile or select **Download all as ZIP**.
 
-Large source images and grids use more browser memory because every tile is
-held locally while the ZIP is created. The grid is capped at 20 × 20.
+Large source images can exceed the browser's available memory because the
+decoded image, tile canvases, and ZIP data are held locally at the same time.
+Resize unusually large images before processing them. The grid is capped at
+20 × 20.
+
+Animated inputs are exported as static PNG tiles, so animation and source-file
+metadata are not preserved.
 
 ### Share Settings
 
