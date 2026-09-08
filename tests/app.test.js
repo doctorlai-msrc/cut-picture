@@ -427,6 +427,28 @@ describe('settings and localization', () => {
     expect(harness.history.replaceState).toHaveBeenCalledTimes(1);
   });
 
+  it('persists the last valid grid value when final input is invalid', async () => {
+    vi.useFakeTimers();
+    const harness = createHarness();
+    await harness.app.ready;
+
+    const rows = document.querySelector('#rowsInput');
+    rows.value = '4';
+    rows.dispatchEvent(new Event('input'));
+    rows.value = '';
+    rows.dispatchEvent(new Event('input'));
+    rows.dispatchEvent(new Event('change'));
+
+    expect(rows.value).toBe('4');
+    expect(
+      JSON.parse(window.localStorage.getItem('cut-picture:settings')).rows,
+    ).toBe(4);
+    expect(harness.location.searchParams.get('height')).toBe('4');
+    expect(harness.history.replaceState).toHaveBeenCalledTimes(1);
+    await vi.runAllTimersAsync();
+    expect(harness.history.replaceState).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps working when browser history updates are blocked', async () => {
     const harness = createHarness();
     await harness.app.ready;

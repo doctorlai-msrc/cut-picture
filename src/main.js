@@ -342,6 +342,10 @@ export function createCutPictureApp(options = {}) {
         elements.rowsInput.value = settings.rows;
         elements.colsInput.value = settings.cols;
       }
+      if (persist) {
+        saveSettings();
+        syncUrlSettings();
+      }
       return false;
     }
 
