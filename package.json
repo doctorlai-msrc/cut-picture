@@ -22,7 +22,7 @@
     "node": "^22.13.0 || ^24.0.0 || >=26.0.0"
   },
   "dependencies": {
-    "jszip": "^3.10.1"
+    "jszip": "^3.10.2"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
